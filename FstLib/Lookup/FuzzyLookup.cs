@@ -46,8 +46,6 @@ namespace FstLib.Lookup
         }
 
         // ── DP-row walk ───────────────────────────────────────────
-        // Reuses two fixed-size scratch arrays (d and p) to avoid allocating nextRow on every arc.
-        // Ping-pongs between them: int[] tmp = d; d = p; p = tmp;
 
         private IEnumerable<(string Key, long Value)> WalkFuzzy(
             long nodeAddr, List<int> path, int[] prevRow, long accum,
@@ -56,13 +54,9 @@ namespace FstLib.Lookup
             if (nodeAddr < 0) yield break;
 
             int patLen = pattern.Length;
-            int[] d = new int[patLen + 1];  // scratch array 1
-            int[] p = new int[patLen + 1];  // scratch array 2
-
             foreach (var arc in ReadAllArcs(nodeAddr))
             {
-                // Ping-pong: use d as nextRow, then swap
-                int[] nextRow = d;
+                var nextRow = new int[patLen + 1];
                 nextRow[0] = prevRow[0] + 1;
                 int best = nextRow[0];
 
@@ -87,11 +81,6 @@ namespace FstLib.Lookup
                         yield return kv;
 
                 path.RemoveAt(path.Count - 1);
-
-                // Swap for next iteration
-                int[] tmp = d;
-                d = p;
-                p = tmp;
             }
         }
 
