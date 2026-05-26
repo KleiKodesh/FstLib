@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>FstLib</AssemblyName>
+    <RootNamespace>FstLib</RootNamespace>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Authors>FstLib</Authors>
+    <Description>Finite State Transducer (FST) library — a minimal Lucene-style FST for fast dictionary lookups with byte-level construction, TARGET_NEXT optimization, and fixed-length binary-search arcs.</Description>
+    <PackageTags>fst;finite-state-transducer;lucene;lookup;index</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/example/FstLib</RepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+  </PropertyGroup>
+
+</Project>
+
