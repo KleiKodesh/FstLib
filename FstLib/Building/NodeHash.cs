@@ -131,12 +131,21 @@ namespace FstLib.Building
         /// Compares reversed-format bytes. <paramref name="aStart"/> and <paramref name="aEnd"/>
         /// are the test range; <paramref name="bEnd"/> is the stored end address.
         /// Both ranges have length <paramref name="len"/>.
+        /// Uses bulk copy and byte-by-byte comparison for compatibility.
         /// </summary>
         private static bool ByteRangeEquals(ByteStore store, long aStart, long aEnd, long bEnd, long len)
         {
             if (aEnd == bEnd) return true;
-            for (long i = 0; i < len; i++)
-                if (store.ReadByte(aStart + i) != store.ReadByte(bEnd - len + i))
+            
+            // Bulk-copy both ranges into scratch buffers, then compare
+            var aBuf = new byte[len];
+            var bBuf = new byte[len];
+            
+            store.CopyTo(aStart, aBuf, 0, (int)len);
+            store.CopyTo(bEnd - len, bBuf, 0, (int)len);
+            
+            for (int i = 0; i < len; i++)
+                if (aBuf[i] != bBuf[i])
                     return false;
             return true;
         }

@@ -119,6 +119,31 @@ namespace FstLib.Building
             return result;
         }
 
+        /// <summary>
+        /// Copies bytes from the store starting at <paramref name="pos"/> into <paramref name="dest"/>
+        /// at offset <paramref name="offset"/>, for <paramref name="length"/> bytes.
+        /// Uses Buffer.BlockCopy for efficiency across page boundaries.
+        /// </summary>
+        public void CopyTo(long pos, byte[] dest, int offset, int length)
+        {
+            long remaining = length;
+            long srcPos = pos;
+            int dstOffset = offset;
+
+            while (remaining > 0)
+            {
+                int srcBlock = (int)(srcPos >> PageBits);
+                int srcBlockOffset = (int)(srcPos & PageMask);
+                int bytesInBlock = PageSize - srcBlockOffset;
+                int chunk = (int)Math.Min(remaining, bytesInBlock);
+
+                Buffer.BlockCopy(_blocks[srcBlock], srcBlockOffset, dest, dstOffset, chunk);
+                srcPos += chunk;
+                dstOffset += chunk;
+                remaining -= chunk;
+            }
+        }
+
         private void AllocBlock()
         {
             if (_blockCount == _blocks.Length)

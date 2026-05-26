@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using FstLib.Core;
@@ -139,12 +140,25 @@ namespace FstLib.Lookup
             return count;
         }
 
+        /// <summary>
+        /// Counts the number of set bits in a byte.
+        /// Uses System.Numerics.BitOperations.PopCount on .NET 5+, falls back to manual implementation on .NET Framework.
+        /// </summary>
         private static int PopCount(byte b)
         {
+#if NET5_0_OR_GREATER
+            return System.Numerics.BitOperations.PopCount(b);
+#else
+            // Fallback for .NET Framework: Brian Kernighan's algorithm
             int v = b;
-            v = v - ((v >> 1) & 0x55);
-            v = (v & 0x33) + ((v >> 2) & 0x33);
-            return (v + (v >> 4)) & 0x0F;
+            int count = 0;
+            while (v != 0)
+            {
+                v &= v - 1;
+                count++;
+            }
+            return count;
+#endif
         }
     }
 }
