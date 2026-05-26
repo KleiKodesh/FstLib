@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using Microsoft.Data.Sqlite;
+using System.Data.SQLite;
 using FstLib;
 using FstLib.Storage;
 using FstLib.Lookup;
@@ -63,10 +63,10 @@ namespace FstTest
             // Clean up if needed
         }
 
-        private string? DetectWordTableName()
+        private string DetectWordTableName()
         {
             var connectionString = $"Data Source={_sqliteDbPath}";
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -94,7 +94,7 @@ namespace FstTest
             var entries = new List<(string, long)>();
             var connectionString = $"Data Source={_sqliteDbPath}";
 
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -126,7 +126,7 @@ namespace FstTest
         private string GetWordColumnName()
         {
             var connectionString = $"Data Source={_sqliteDbPath}";
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -154,7 +154,7 @@ namespace FstTest
             _testQueries.Clear();
             var connectionString = $"Data Source={_sqliteDbPath}";
 
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -526,7 +526,7 @@ namespace FstTest
         private bool QuerySqliteExact(string word)
         {
             var connectionString = $"Data Source={_sqliteDbPath}";
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -545,7 +545,7 @@ namespace FstTest
             var connectionString = $"Data Source={_sqliteDbPath}";
             var results = new List<string>();
 
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -572,7 +572,7 @@ namespace FstTest
             var connectionString = $"Data Source={_sqliteDbPath}";
             var results = new List<string>();
 
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -599,7 +599,7 @@ namespace FstTest
             var connectionString = $"Data Source={_sqliteDbPath}";
             var results = new List<string>();
 
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -629,7 +629,7 @@ namespace FstTest
             var connectionString = $"Data Source={_sqliteDbPath}";
             var results = new List<string>();
 
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())

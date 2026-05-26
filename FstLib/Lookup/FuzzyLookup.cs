@@ -93,8 +93,8 @@ namespace FstLib.Lookup
         private IEnumerable<(string Key, long Value)> WalkFuzzyDfa(int[] pattern, int maxEdits)
         {
             ParametricDescription dfa = maxEdits == 1
-                ? new Lev1ParametricDescription(pattern.Length)
-                : new Lev2ParametricDescription(pattern.Length);
+                ? (ParametricDescription)new Lev1ParametricDescription(pattern.Length)
+                : (ParametricDescription)new Lev2ParametricDescription(pattern.Length);
 
             int range = 2 * maxEdits + 1;
 

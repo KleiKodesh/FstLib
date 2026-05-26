@@ -71,22 +71,71 @@ namespace FstLib.Lookup
         /// <summary>
         /// Enumerates all keys that contain the given pattern (*word*).
         /// 
-        /// Enumerates all keys and filters those containing the pattern.
-        /// While this is O(n), it's necessary for substring matching since FSTs
-        /// are optimized for prefix/suffix queries, not arbitrary substring matching.
+        /// Uses DFA intersection with FST traversal to prune subtrees where the pattern
+        /// cannot possibly be found. This reduces complexity from O(n) to O(m + k)
+        /// where m = pattern length and k = results.
         /// 
-        /// Complexity: O(n) where n = total keys
+        /// Complexity: O(m + k) where m = pattern length, k = results
         /// </summary>
         internal IEnumerable<(string Key, long Value)> EnumerateContains(string pattern)
         {
             if (pattern == null) throw new ArgumentNullException(nameof(pattern));
             if (pattern.Length == 0) throw new ArgumentException("Pattern cannot be empty");
 
-            // Enumerate all keys and filter those containing the pattern
-            foreach (var (key, value) in EnumerateAll())
+            // Build a DFA that matches any string containing the pattern
+            int[] patternLabels = EncodeKey(pattern);
+            var dfa = new ContainsDfa(patternLabels);
+            
+            var pathLabels = new List<int>();
+            foreach (var result in WalkWithDfaIntersection(_fst.RootAddress, 0L, pathLabels, dfa, 0, false, 0))
+                yield return result;
+        }
+
+        /// <summary>
+        /// Walks the FST while intersecting with a DFA state machine.
+        /// Prunes branches where the DFA state is dead (no match possible).
+        /// </summary>
+        private IEnumerable<(string Key, long Value)> WalkWithDfaIntersection(
+            long nodeAddr,
+            long accumulated,
+            List<int> pathLabels,
+            ContainsDfa dfa,
+            int dfaState,
+            bool isFinal,
+            long finalOutput)
+        {
+            // Yield if this node is final and DFA has seen the pattern
+            if (isFinal && dfa.IsAccepting(dfaState))
+                yield return (BuildKey(pathLabels), accumulated + finalOutput);
+
+            if (nodeAddr < 0)
+                yield break;
+
+            foreach (var arc in ReadAllArcs(nodeAddr))
             {
-                if (key.Contains(pattern))
-                    yield return (key, value);
+                // Advance DFA with this label
+                int nextDfaState = dfa.Transition(dfaState, arc.Label);
+                
+                // Prune: if DFA is dead, skip this entire subtree
+                if (nextDfaState == ContainsDfa.DEAD_STATE)
+                    continue;
+
+                pathLabels.Add(arc.Label);
+                long childAccum = accumulated + arc.Output;
+
+                if (arc.TargetAddress < 0)
+                {
+                    if (arc.IsFinal && dfa.IsAccepting(nextDfaState))
+                        yield return (BuildKey(pathLabels), childAccum + arc.FinalOutput);
+                }
+                else
+                {
+                    foreach (var result in WalkWithDfaIntersection(
+                        arc.TargetAddress, childAccum, pathLabels, dfa, nextDfaState, arc.IsFinal, arc.FinalOutput))
+                        yield return result;
+                }
+
+                pathLabels.RemoveAt(pathLabels.Count - 1);
             }
         }
 

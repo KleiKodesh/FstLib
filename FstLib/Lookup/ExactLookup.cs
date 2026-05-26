@@ -19,9 +19,9 @@ namespace FstLib.Lookup
     {
         private readonly Fst _fst;
         private readonly byte _labelBytes;
-        private readonly FstLookup? _reverseLookup;
+        private readonly FstLookup _reverseLookup;
 
-        internal FstLookup(Fst fst, FstLookup? reverseLookup = null)
+        internal FstLookup(Fst fst, FstLookup reverseLookup = null)
         {
             _fst = fst;
             _labelBytes = fst.LabelBytes;

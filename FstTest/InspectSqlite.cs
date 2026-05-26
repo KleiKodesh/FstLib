@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using Microsoft.Data.Sqlite;
+using System.Data.SQLite;
 
 namespace FstTest
 {
@@ -21,7 +21,7 @@ namespace FstTest
             Console.WriteLine($"Inspecting: {Path.GetFileName(dbPath)}\n");
 
             var connectionString = $"Data Source={dbPath}";
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
 

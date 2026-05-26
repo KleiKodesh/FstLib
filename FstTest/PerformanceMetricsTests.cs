@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using Microsoft.Data.Sqlite;
+using System.Data.SQLite;
 using FstLib;
 using FstLib.Storage;
 using FstLib.Lookup;
@@ -58,6 +58,7 @@ namespace FstTest
             _metricsReport.AppendLine("- **Exact Match**: Direct key lookup (e.g., searching for \"abc\")");
             _metricsReport.AppendLine("- **Starts With**: Pattern matching for words beginning with a prefix (e.g., \"ab*\")");
             _metricsReport.AppendLine("- **Ends With**: Pattern matching for words ending with a suffix (e.g., \"*bc\")");
+            _metricsReport.AppendLine("- **Contains**: Substring matching for words containing a pattern (e.g., \"*ab*\")");
             _metricsReport.AppendLine("- **Fuzzy Search**: Levenshtein distance matching with maximum 1 edit distance");
             _metricsReport.AppendLine();
             _metricsReport.AppendLine("### How Tests Were Conducted");
@@ -76,6 +77,7 @@ namespace FstTest
             _metricsReport.AppendLine("- Exact Match: 1000 iterations of random key lookups");
             _metricsReport.AppendLine("- Starts With: 100 iterations using 10 distinct patterns");
             _metricsReport.AppendLine("- Ends With: 100 iterations using 10 distinct patterns");
+            _metricsReport.AppendLine("- Contains: 100 iterations using 10 distinct patterns");
             _metricsReport.AppendLine("- Fuzzy Search: 50 iterations with Levenshtein distance ≤ 1");
             _metricsReport.AppendLine("- Each test includes warm-up iteration before timing");
             _metricsReport.AppendLine();
@@ -83,6 +85,7 @@ namespace FstTest
             _metricsReport.AppendLine("- Exact Match: SELECT COUNT(*) WHERE word = @word");
             _metricsReport.AppendLine("- Starts With: SELECT word FROM table WHERE word LIKE @pattern%");
             _metricsReport.AppendLine("- Ends With: SELECT word FROM table WHERE word LIKE %@pattern");
+            _metricsReport.AppendLine("- Contains: SELECT word FROM table WHERE word LIKE %@pattern%");
             _metricsReport.AppendLine("- Fuzzy Search: Full table scan with Levenshtein distance calculation");
             _metricsReport.AppendLine("- Note: All queries return complete result sets (no LIMIT clauses)");
             _metricsReport.AppendLine();
@@ -90,6 +93,7 @@ namespace FstTest
             _metricsReport.AppendLine("- Exact Match: Direct arc traversal O(m) where m = key length");
             _metricsReport.AppendLine("- Starts With: Arc traversal + descendant enumeration O(m + k) where k = results");
             _metricsReport.AppendLine("- Ends With: Reverse FST traversal + descendant enumeration O(m + k)");
+            _metricsReport.AppendLine("- Contains: FST traversal with DFA intersection and pruning O(m + k)");
             _metricsReport.AppendLine("- Fuzzy Search: Levenshtein DFA traversal with pruning");
             _metricsReport.AppendLine();
             _metricsReport.AppendLine();
@@ -162,6 +166,7 @@ namespace FstTest
             TestExactMatch(dbFile, lookup, testQueries, metrics);
             TestStartsWith(dbFile, lookup, testQueries, metrics);
             TestEndsWith(dbFile, lookup, testQueries, metrics);
+            TestContains(dbFile, lookup, testQueries, metrics);
             TestFuzzySearch(fstPath, testQueries, metrics);
 
             return metrics;
@@ -170,7 +175,7 @@ namespace FstTest
         private void GetDatabaseInfo(string dbFile, DatabaseMetrics metrics)
         {
             var connectionString = $"Data Source={dbFile}";
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
 
@@ -214,7 +219,7 @@ namespace FstTest
             var entries = new List<(string, long)>();
             var connectionString = $"Data Source={dbFile}";
 
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -257,7 +262,7 @@ namespace FstTest
         private string GetWordColumnName(string dbFile, string tableName)
         {
             var connectionString = $"Data Source={dbFile}";
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -286,7 +291,7 @@ namespace FstTest
             string tableName = GetTableName(dbFile);
             string wordColumn = GetWordColumnName(dbFile, tableName);
 
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -308,7 +313,7 @@ namespace FstTest
         private string GetTableName(string dbFile)
         {
             var connectionString = $"Data Source={dbFile}";
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -454,6 +459,47 @@ namespace FstTest
             Console.WriteLine($"EndsWith: FST {fstStopwatch.ElapsedMilliseconds}ms vs SQLite {sqliteStopwatch.ElapsedMilliseconds}ms ({metrics.EndsWithSpeedup:F2}x faster)");
         }
 
+        private void TestContains(string dbFile, FstLookup lookup, List<string> testQueries, DatabaseMetrics metrics)
+        {
+            const int iterations = 100;
+
+            var patterns = testQueries
+                .Select(q => q.Length > 3 ? q.Substring(1, q.Length - 2) : q)
+                .Distinct()
+                .Take(10)
+                .ToList();
+
+            if (patterns.Count == 0) return;
+
+            // Warm up
+            _ = lookup.EnumerateContains(patterns[0]).Count();
+            _ = QuerySqliteContains(dbFile, patterns[0]).Count();
+
+            // FST benchmark
+            var fstStopwatch = Stopwatch.StartNew();
+            for (int i = 0; i < iterations; i++)
+            {
+                _ = lookup.EnumerateContains(patterns[i % patterns.Count]).Count();
+            }
+            fstStopwatch.Stop();
+
+            // SQLite benchmark
+            var sqliteStopwatch = Stopwatch.StartNew();
+            for (int i = 0; i < iterations; i++)
+            {
+                _ = QuerySqliteContains(dbFile, patterns[i % patterns.Count]).Count();
+            }
+            sqliteStopwatch.Stop();
+
+            metrics.ContainsFstMs = fstStopwatch.ElapsedMilliseconds;
+            metrics.ContainsSqliteMs = sqliteStopwatch.ElapsedMilliseconds;
+            metrics.ContainsSpeedup = sqliteStopwatch.ElapsedMilliseconds > 0
+                ? (double)sqliteStopwatch.ElapsedMilliseconds / fstStopwatch.ElapsedMilliseconds
+                : 0;
+
+            Console.WriteLine($"Contains: FST {fstStopwatch.ElapsedMilliseconds}ms vs SQLite {sqliteStopwatch.ElapsedMilliseconds}ms ({metrics.ContainsSpeedup:F2}x faster)");
+        }
+
         private void TestFuzzySearch(string fstPath, List<string> testQueries, DatabaseMetrics metrics)
         {
             const int iterations = 50;
@@ -489,6 +535,7 @@ namespace FstTest
                 _metricsReport.AppendLine($"| Exact Match | {metrics.ExactMatchFstMs}ms | {metrics.ExactMatchSqliteMs}ms | FST | {FormatSpeedup(metrics.ExactMatchSpeedup)} |");
                 _metricsReport.AppendLine($"| Starts With | {metrics.StartsWithFstMs}ms | {metrics.StartsWithSqliteMs}ms | FST | {FormatSpeedup(metrics.StartsWithSpeedup)} |");
                 _metricsReport.AppendLine($"| Ends With | {metrics.EndsWithFstMs}ms | {metrics.EndsWithSqliteMs}ms | FST | {FormatSpeedup(metrics.EndsWithSpeedup)} |");
+                _metricsReport.AppendLine($"| Contains | {metrics.ContainsFstMs}ms | {metrics.ContainsSqliteMs}ms | {(metrics.ContainsSpeedup >= 1 ? "FST" : "SQLite")} | {FormatSpeedup(metrics.ContainsSpeedup)} |");
                 _metricsReport.AppendLine($"| Fuzzy Search | {metrics.FuzzySearchFstMs}ms | N/A | FST | N/A |");
                 _metricsReport.AppendLine();
             }
@@ -596,7 +643,7 @@ namespace FstTest
         private bool QuerySqliteExact(string dbFile, string word)
         {
             var connectionString = $"Data Source={dbFile}";
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -616,7 +663,7 @@ namespace FstTest
             var connectionString = $"Data Source={dbFile}";
             var results = new List<string>();
 
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -644,7 +691,7 @@ namespace FstTest
             var connectionString = $"Data Source={dbFile}";
             var results = new List<string>();
 
-            using (var connection = new SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
@@ -653,6 +700,34 @@ namespace FstTest
                     string wordColumn = GetWordColumnName(dbFile, tableName);
                     command.CommandText = $"SELECT {wordColumn} FROM {tableName} WHERE {wordColumn} LIKE @pattern";
                     command.Parameters.AddWithValue("@pattern", "%" + pattern);
+
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            results.Add(reader.GetString(0));
+                        }
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        private IEnumerable<string> QuerySqliteContains(string dbFile, string pattern)
+        {
+            var connectionString = $"Data Source={dbFile}";
+            var results = new List<string>();
+
+            using (var connection = new SQLiteConnection(connectionString))
+            {
+                connection.Open();
+                using (var command = connection.CreateCommand())
+                {
+                    string tableName = GetTableName(dbFile);
+                    string wordColumn = GetWordColumnName(dbFile, tableName);
+                    command.CommandText = $"SELECT {wordColumn} FROM {tableName} WHERE {wordColumn} LIKE @pattern";
+                    command.Parameters.AddWithValue("@pattern", "%" + pattern + "%");
 
                     using (var reader = command.ExecuteReader())
                     {
@@ -698,6 +773,10 @@ namespace FstTest
         public long EndsWithFstMs { get; set; }
         public long EndsWithSqliteMs { get; set; }
         public double EndsWithSpeedup { get; set; }
+
+        public long ContainsFstMs { get; set; }
+        public long ContainsSqliteMs { get; set; }
+        public double ContainsSpeedup { get; set; }
 
         public long FuzzySearchFstMs { get; set; }
     }

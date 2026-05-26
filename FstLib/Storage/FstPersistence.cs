@@ -26,7 +26,7 @@ namespace FstLib.Storage
             if (fst      == null) throw new ArgumentNullException(nameof(fst));
             if (filePath == null) throw new ArgumentNullException(nameof(filePath));
 
-            string? dir = Path.GetDirectoryName(filePath);
+            string dir = Path.GetDirectoryName(filePath);
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
 

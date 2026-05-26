@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <LangVersion>9.0</LangVersion>
+    <TargetFramework>net48</TargetFramework>
+    <Nullable>disable</Nullable>
+    <LangVersion>8.0</LangVersion>
     <AssemblyName>FstLib</AssemblyName>
     <RootNamespace>FstLib</RootNamespace>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

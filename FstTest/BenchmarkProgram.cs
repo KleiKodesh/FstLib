@@ -1,6 +1,9 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Data.SQLite;
+using FstLib;
+using FstLib.Storage;
 
 namespace FstTest
 {
@@ -83,7 +86,7 @@ namespace FstTest
             var connectionString = $"Data Source={dbPath}";
             var entries = new System.Collections.Generic.List<(string, long)>();
 
-            using (var connection = new Microsoft.Data.Sqlite.SqliteConnection(connectionString))
+            using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
                 using (var command = connection.CreateCommand())
